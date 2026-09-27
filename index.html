@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>سوپر مرغ: نبرد تخم‌مرغ‌ها (نسخه ۲)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #87CEEB; /* رنگ آسمان ماریو */
+      overflow: hidden;
+      font-family: 'Lalezar', cursive;
+      touch-action: none; /* جلوگیری از زوم و اسکرول در موبایل */
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* رابط کاربری روی بازی */
+    #ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      direction: ltr; /* حل مشکل جابه‌جا شدن چپ و راست در فلکس‌باکس */
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      padding: 15px 30px;
+      font-size: 28px;
+      color: white;
+      text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      direction: rtl; /* برای نوشته‌های فارسی */
+    }
+
+    /* دکمه‌های کنترل */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 40px;
+      pointer-events: auto;
+    }
+
+    .d-pad, .action-pad {
+      display: flex;
+      gap: 15px;
+    }
+
+    .btn {
+      width: 70px;
+      height: 70px;
+      background-color: rgba(255, 255, 255, 0.5);
+      border: 4px solid rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 35px;
+      color: #333;
+      user-select: none;
+      cursor: pointer;
+    }
+    
+    .btn:active {
+      background-color: rgba(255, 255, 255, 0.8);
+      transform: scale(0.95);
+    }
+
+    /* صفحات منو */
+    .overlay-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      pointer-events: auto;
+      z-index: 10;
+      direction: rtl;
+    }
+
+    h1 {
+      font-size: 60px;
+      margin-bottom: 10px;
+      text-shadow: 4px 4px 0 #d35400;
+      text-align: center;
+    }
+
+    p {
+      font-size: 24px;
+      margin-bottom: 30px;
+      text-align: center;
+      max-width: 80%;
+    }
+
+    .start-btn {
+      padding: 15px 40px;
+      font-size: 30px;
+      background-color: #f1c40f;
+      color: #333;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: 'Lalezar', cursive;
+      box-shadow: 0 5px 0 #d35400;
+      transition: 0.1s;
+    }
+
+    .start-btn:active {
+      transform: translateY(5px);
+      box-shadow: 0 0 0 #d35400;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="ui-layer">
+    <div class="top-bar">
+      <div id="scoreDisplay">تخم‌مرغ: ۰ 🥚</div>
+      <div id="healthDisplay">❤️❤️❤️</div>
+    </div>
+    <div class="controls" id="on-screen-controls">
+      <div class="d-pad">
+        <div class="btn" id="btn-left">◀</div>
+        <div class="btn" id="btn-right">▶</div>
+      </div>
+      <div class="action-pad">
+        <div class="btn" id="btn-jump">▲</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="startScreen" class="overlay-screen">
+    <h1>سوپر مرغ 🐔</h1>
+    <p>تخم‌مرغ‌ها رو جمع کن، روباه‌ها رو با پریدن رو سرشون له کن و در آخر با <b>سرآشپز خبیث</b> مبارزه کن!</p>
+    <p style="font-size: 18px; color:#bdc3c7;">کنترل: کلیدهای جهت‌نما کیبورد یا دکمه‌های روی صفحه</p>
+    <button class="start-btn" onclick="startGame()">شروع بازی</button>
+  </div>
+
+  <div id="gameOverScreen" class="overlay-screen hidden">
+    <h1 style="color: #e74c3c; text-shadow: 4px 4px 0 #c0392b;">باختی! 🍗</h1>
+    <p>مرغ ما تبدیل به ناگت شد...</p>
+    <button class="start-btn" onclick="location.reload()">تلاش دوباره</button>
+  </div>
+
+  <div id="victoryScreen" class="overlay-screen hidden">
+    <h1 style="color: #2ecc71; text-shadow: 4px 4px 0 #27ae60;">برنده شدی! 👑</h1>
+    <p>سرآشپز شکست خورد و همه تخم‌مرغ‌ها نجات پیدا کردن!</p>
+    <p id="finalScore" style="font-size: 30px; color: #f1c40f;"></p>
+    <button class="start-btn" onclick="location.reload()">بازی دوباره</button>
+  </div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let gameState = 'START'; 
+  let camera = { x: 0, y: 0 };
+  let frameCount = 0;
+  
+  const keys = { left: false, right: false, up: false };
+
+  let player;
+  let platforms = [];
+  let items = [];
+  let enemies = [];
+  let particles = [];
+  let boss = null;
+
+  const levelMap = [
+    "                                                                                          ",
+    "                                                                                          ",
+    "                                                                                          ",
+    "                                          E                                               ",
+    "                        E        BBB     BBB                                              ",
+    "                       BBB                                                C               ",
+    "             E                                    E                                       ",
+    "            BBB                           F      BBB                                      ",
+    "                                  BBBBBBBBBB            BBBBBBB                           ",
+    "       E                F                                                F                ",
+    "      BBB            BBBBBBB                                        BBBBBBBBBB            ",
+    "P                                                                                         ",
+    "GGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+  ];
+  const tileSize = 60;
+
+  class Player {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.width = 40;
+      this.height = 40;
+      this.vx = 0;
+      this.vy = 0;
+      this.speed = 5;
+      this.jumpPower = -14;
+      this.gravity = 0.6;
+      this.isGrounded = false;
+      this.health = 3;
+      this.score = 0;
+      this.invulnerableTimer = 0;
+      this.facingRight = true;
+    }
+
+    update() {
+      if (keys.left) { this.vx = -this.speed; this.facingRight = false; }
+      else if (keys.right) { this.vx = this.speed; this.facingRight = true; }
+      else { this.vx *= 0.8; } 
+
+      if (keys.up && this.isGrounded) {
+        this.vy = this.jumpPower;
+        this.isGrounded = false;
+        createParticles(this.x + this.width/2, this.y + this.height, '#fff', 5);
+      }
+
+      this.vy += this.gravity;
+
+      this.x += this.vx;
+      this.checkCollisions('x');
+      
+      this.y += this.vy;
+      this.isGrounded = false;
+      this.checkCollisions('y');
+
+      if (this.x < 0) this.x = 0;
+      if (this.y > canvas.height + 1000) this.takeDamage(3); // افتادن خیلی پایین
+
+      if (this.invulnerableTimer > 0) this.invulnerableTimer--;
+
+      // دنبال کردن دوربین افقی و عمودی
+      camera.x = this.x - canvas.width / 3;
+      if (camera.x < 0) camera.x = 0;
+      
+      // حل مشکل دیده نشدن مرغ در موبایل (دوربین عمودی)
+      camera.y = this.y - canvas.height / 1.5;
+    }
+
+    checkCollisions(axis) {
+      for (let p of platforms) {
+        if (this.x < p.x + p.width &&
+            this.x + this.width > p.x &&
+            this.y < p.y + p.height &&
+            this.y + this.height > p.y) {
+          
+          if (axis === 'x') {
+            if (this.vx > 0) this.x = p.x - this.width;
+            else if (this.vx < 0) this.x = p.x + p.width;
+            this.vx = 0;
+          } else {
+            if (this.vy > 0) {
+              this.y = p.y - this.height;
+              this.isGrounded = true;
+            } else if (this.vy < 0) {
+              this.y = p.y + p.height;
+            }
+            this.vy = 0;
+          }
+        }
+      }
+    }
+
+    takeDamage(amount) {
+      if (this.invulnerableTimer > 0) return;
+      this.health -= amount;
+      this.invulnerableTimer = 60; 
+      createParticles(this.x + this.width/2, this.y + this.height/2, '#e74c3c', 15);
+      updateUI();
+      
+      if (this.health <= 0) {
+        gameState = 'GAMEOVER';
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+      } else {
+        this.vy = -8;
+        this.vx = this.facingRight ? -10 : 10;
+      }
+    }
+
+    draw() {
+      if (this.invulnerableTimer > 0 && Math.floor(frameCount / 5) % 2 === 0) return; 
+      
+      ctx.save();
+      // کم کردن Y دوربین برای نمایش صحیح
+      ctx.translate(this.x - camera.x + this.width/2, this.y - camera.y + this.height/2);
+      
+      // حل مشکل برعکس بودن صورت مرغ (ایموجی مرغ به صورت پیشفرض به سمت چپ نگاه میکنه)
+      if (this.facingRight) ctx.scale(-1, 1);
+      
+      ctx.font = "45px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🐔", 0, 0); 
+      ctx.restore();
+    }
+  }
+
+  class Enemy {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.width = 40;
+      this.height = 40;
+      this.vx = -2; 
+      this.vy = 0;
+      this.isDead = false;
+    }
+
+    update() {
+      if (this.isDead) return;
+      this.vy += 0.6; 
+      this.x += this.vx;
+
+      for (let p of platforms) {
+        if (this.x < p.x + p.width && this.x + this.width > p.x &&
+            this.y < p.y + p.height && this.y + this.height > p.y) {
+          if (this.y + this.height > p.y + 10) { 
+            this.vx *= -1; 
+          } else { 
+            this.y = p.y - this.height;
+            this.vy = 0;
+          }
+        }
+      }
+
+      if (!player.invulnerableTimer && 
+          this.x < player.x + player.width && this.x + this.width > player.x &&
+          this.y < player.y + player.height && this.y + this.height > player.y) {
+        
+        if (player.vy > 0 && player.y + player.height < this.y + 20) {
+          this.isDead = true;
+          player.vy = -10; 
+          createParticles(this.x + 20, this.y + 20, '#e67e22', 10);
+        } else {
+          player.takeDamage(1);
+        }
+      }
+    }
+
+    draw() {
+      if (this.isDead) return;
+      ctx.save();
+      ctx.translate(this.x - camera.x + this.width/2, this.y - camera.y + this.height/2);
+      if (this.vx > 0) ctx.scale(-1, 1);
+      ctx.font = "40px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🦊", 0, 0);
+      ctx.restore();
+    }
+  }
+
+  class Boss {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y - 40; 
+      this.width = 80;
+      this.height = 80;
+      this.vx = -3;
+      this.vy = 0;
+      this.health = 3; 
+      this.state = 'WALK'; 
+      this.timer = 0;
+    }
+
+    update() {
+      if (this.health <= 0) return;
+
+      this.vy += 0.6;
+      
+      if (this.state === 'WALK' || this.state === 'RAGE') {
+        this.x += this.vx;
+        if (this.state === 'RAGE') this.x += this.vx * 0.5; 
+      } else if (this.state === 'HURT') {
+        this.timer--;
+        if (this.timer <= 0) {
+          this.state = this.health === 1 ? 'RAGE' : 'WALK';
+          this.vx = player.x < this.x ? -3 : 3; 
+        }
+      }
+
+      for (let p of platforms) {
+        if (this.x < p.x + p.width && this.x + this.width > p.x &&
+            this.y < p.y + p.height && this.y + this.height > p.y) {
+          if (this.y + this.height > p.y + 20) { 
+            this.vx *= -1; 
+          } else {
+            this.y = p.y - this.height;
+            this.vy = 0;
+            if (Math.random() < 0.01 && this.state !== 'HURT') this.vy = -12;
+          }
+        }
+      }
+
+      if (this.x < player.x - 400) this.vx = Math.abs(this.vx);
+      if (this.x > player.x + 400) this.vx = -Math.abs(this.vx);
+
+      if (!player.invulnerableTimer && this.state !== 'HURT' &&
+          this.x < player.x + player.width && this.x + this.width > player.x &&
+          this.y < player.y + player.height && this.y + this.height > player.y) {
+        
+        if (player.vy > 0 && player.y + player.height < this.y + 30) {
+          this.health--;
+          this.state = 'HURT';
+          this.timer = 60;
+          player.vy = -15; 
+          createParticles(this.x + 40, this.y + 40, '#ecf0f1', 20);
+          
+          if (this.health <= 0) {
+            gameState = 'VICTORY';
+            document.getElementById('finalScore').innerText = "امتیاز شما: " + player.score;
+            document.getElementById('victoryScreen').classList.remove('hidden');
+          }
+        } else {
+          player.takeDamage(1);
+        }
+      }
+    }
+
+    draw() {
+      if (this.health <= 0) return;
+      ctx.save();
+      ctx.translate(this.x - camera.x + this.width/2, this.y - camera.y + this.height/2);
+      
+      if (this.state === 'HURT' && Math.floor(frameCount/5)%2===0) ctx.globalAlpha = 0.5;
+      if (this.state === 'RAGE') ctx.scale(1.2, 1.2);
+      
+      if (this.vx > 0) ctx.scale(-1, 1);
+      ctx.font = "80px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(this.state === 'RAGE' ? "👹" : "👨‍🍳", 0, 0); 
+      ctx.restore();
+      
+      ctx.fillStyle = "red";
+      ctx.fillRect(this.x - camera.x + 10, this.y - camera.y - 20, 60 * (this.health/3), 8);
+      ctx.strokeStyle = "white";
+      ctx.strokeRect(this.x - camera.x + 10, this.y - camera.y - 20, 60, 8);
+    }
+  }
+
+  class Particle {
+    constructor(x, y, color) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.size = Math.random() * 5 + 2;
+      this.vx = (Math.random() - 0.5) * 8;
+      this.vy = (Math.random() - 0.5) * 8;
+      this.life = 1;
+      this.decay = Math.random() * 0.05 + 0.02;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.life -= this.decay;
+    }
+    draw() {
+      ctx.globalAlpha = this.life;
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x - camera.x, this.y - camera.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function createParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+      particles.push(new Particle(x, y, color));
+    }
+  }
+
+  function buildLevel() {
+    platforms = [];
+    items = [];
+    enemies = [];
+    
+    for (let row = 0; row < levelMap.length; row++) {
+      for (let col = 0; col < levelMap[row].length; col++) {
+        const char = levelMap[row][col];
+        const x = col * tileSize;
+        const y = row * tileSize;
+
+        if (char === 'G') platforms.push({ x, y, width: tileSize, height: tileSize, type: 'ground' });
+        else if (char === 'B') platforms.push({ x, y, width: tileSize, height: tileSize, type: 'block' });
+        else if (char === 'P') player = new Player(x, y);
+        else if (char === 'E') items.push({ x: x+10, y: y+10, width: 30, height: 30, collected: false });
+        else if (char === 'F') enemies.push(new Enemy(x, y));
+        else if (char === 'C') boss = new Boss(x, y);
+      }
+    }
+  }
+
+  function updateUI() {
+    document.getElementById('scoreDisplay').innerText = `تخم‌مرغ: ${player.score} 🥚`;
+    let hearts = "";
+    for(let i=0; i<player.health; i++) hearts += "❤️";
+    document.getElementById('healthDisplay').innerText = hearts;
+  }
+
+  function gameLoop() {
+    if (gameState !== 'PLAYING') return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frameCount++;
+
+    ctx.font = "100px Arial";
+    ctx.fillStyle = "white";
+    ctx.fillText("☁️", 100 - (camera.x * 0.1) % canvas.width, 150 - camera.y * 0.1);
+    ctx.fillText("☁️", 500 - (camera.x * 0.1) % canvas.width, 100 - camera.y * 0.1);
+    ctx.fillText("☁️", 900 - (camera.x * 0.1) % canvas.width, 200 - camera.y * 0.1);
+
+    for (let p of platforms) {
+      if (p.x - camera.x > canvas.width || p.x - camera.x + p.width < 0) continue; 
+      
+      if (p.type === 'ground') {
+        ctx.fillStyle = '#8B4513'; 
+        ctx.fillRect(p.x - camera.x, p.y - camera.y, p.width, p.height);
+        ctx.fillStyle = '#228B22'; 
+        ctx.fillRect(p.x - camera.x, p.y - camera.y, p.width, 10);
+      } else if (p.type === 'block') {
+        ctx.fillStyle = '#CD853F'; 
+        ctx.fillRect(p.x - camera.x, p.y - camera.y, p.width, p.height);
+        ctx.strokeStyle = '#8B4513';
+        ctx.strokeRect(p.x - camera.x, p.y - camera.y, p.width, p.height);
+      }
+    }
+
+    for (let item of items) {
+      if (!item.collected) {
+        let hoverY = item.y + Math.sin(frameCount * 0.1) * 5;
+        ctx.font = "30px Arial";
+        ctx.fillText("🥚", item.x - camera.x, hoverY + 25 - camera.y);
+
+        if (player.x < item.x + item.width && player.x + player.width > item.x &&
+            player.y < item.y + item.height && player.y + player.height > item.y) {
+          item.collected = true;
+          player.score++;
+          createParticles(item.x + 15, item.y + 15, '#f1c40f', 8);
+          updateUI();
+        }
+      }
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      let e = enemies[i];
+      e.update();
+      e.draw();
+      if (e.isDead && e.y > canvas.height + camera.y) enemies.splice(i, 1); 
+    }
+
+    if (boss) {
+      boss.update();
+      boss.draw();
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].update();
+      particles[i].draw();
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    player.update();
+    player.draw();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    document.getElementById('startScreen').classList.add('hidden');
+    buildLevel();
+    updateUI();
+    gameState = 'PLAYING';
+    gameLoop();
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') keys.up = true;
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') keys.up = false;
+  });
+
+  // کنترل‌های روی صفحه (هم لمسی هم با کلیک موس برای دسکتاپ)
+  const btnLeft = document.getElementById('btn-left');
+  const btnRight = document.getElementById('btn-right');
+  const btnJump = document.getElementById('btn-jump');
+
+  const addControl = (element, key) => {
+    const startAction = (e) => { e.preventDefault(); keys[key] = true; };
+    const endAction = (e) => { e.preventDefault(); keys[key] = false; };
+    
+    // برای موبایل
+    element.addEventListener('touchstart', startAction, {passive: false});
+    element.addEventListener('touchend', endAction, {passive: false});
+    
+    // برای دسکتاپ (موس)
+    element.addEventListener('mousedown', startAction);
+    element.addEventListener('mouseup', endAction);
+    element.addEventListener('mouseleave', endAction);
+  };
+
+  addControl(btnLeft, 'left');
+  addControl(btnRight, 'right');
+  addControl(btnJump, 'up');
+
+</script>
+</body>
+</html>
